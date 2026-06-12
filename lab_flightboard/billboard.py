@@ -4,11 +4,15 @@ This module turns parsed CalendarBooking objects into a per-instrument view
 with a live status (free / inuse / down). It is deliberately network-free so it
 can be unit tested with fake bookings; the example app supplies the bookings.
 """
+import re
+from collections import Counter
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Optional, Sequence
 
 from .models import CalendarBooking
+
+_PAREN_RE = re.compile(r"\(([^()]*)\)")
 
 VALID_MODES = ("full", "status-only")
 
@@ -34,20 +38,65 @@ class InstrumentView:
 # Title cleaning
 # ---------------------------------------------------------------------------
 
-def clean_title(title: Optional[str], strip: Optional[str]) -> str:
-    """Remove a repeated instrument name from a booking title.
+def clean_title(title, strip=None, strip_parentheses: bool = True) -> str:
+    """Reduce a booking SUMMARY down to just the person's name.
 
-    Many booking systems embed the instrument name in every SUMMARY, e.g.
-    "A. Researcher (DEMO SEM)". Passing strip="DEMO SEM" leaves "A. Researcher".
+    Booking systems often wrap the name with the building + instrument, e.g.
+        "HAWKEN JEOL 7100F Lin Chih-Ling Jenny (HAWKEN JEOL 7100F)"
+        "HAWKEN JEOL 7800 Yang Xingchen ( s4773903 )"
+
+    This:
+      1. removes every "(...)" group (instrument label, user id, etc.) when
+         strip_parentheses is True,
+      2. removes any configured `strip` term(s) and any label found in those
+         parentheses when it appears as a leading prefix.
+
+    `strip` may be a single string or a list of strings. The result for the
+    examples above is "Lin Chih-Ling Jenny" and "Yang Xingchen".
     """
     s = title or ""
+
+    terms = []
     if strip:
-        s = s.replace("(" + strip + ")", " ")
-        stripped = s.lstrip()
-        if stripped.startswith(strip):
-            s = stripped[len(strip):]
+        terms = list(strip) if isinstance(strip, (list, tuple)) else [strip]
+
+    # Labels inside parentheses are good candidates for the leading prefix too
+    # (the trailing "(HAWKEN JEOL 7100F)" tells us what prefixes the title).
+    paren_labels = []
+    if strip_parentheses:
+        paren_labels = [m.strip() for m in _PAREN_RE.findall(s) if m.strip()]
+        s = _PAREN_RE.sub(" ", s)
+    s = " ".join(s.split())
+
+    candidates = [t for t in terms + paren_labels if t]
+    changed = True
+    while changed and candidates:
+        changed = False
+        lead = s.lstrip()
+        for c in candidates:
+            if lead.startswith(c):
+                s = lead[len(c):]
+                changed = True
+                break
     s = " ".join(s.split())
     return s or "Booked"
+
+
+def auto_strip_terms(titles: Sequence[Optional[str]], min_count: int = 2) -> list[str]:
+    """Find parenthesised labels that repeat across titles (the instrument name).
+
+    A booking system stamps the same "(HAWKEN JEOL 7800)" on every booking, while
+    user ids like "( s4773903 )" are unique. Labels seen on >= min_count bookings
+    are almost certainly the building/instrument, so they make good strip terms -
+    even for the bookings whose own parentheses only hold a user id.
+    """
+    labels: list[str] = []
+    for t in titles:
+        labels += [m.strip() for m in _PAREN_RE.findall(t or "") if m.strip()]
+    counts = Counter(labels)
+    # Longest first so the most specific prefix is stripped before any substring.
+    repeated = [lab for lab, n in counts.items() if n >= min_count]
+    return sorted(repeated, key=len, reverse=True)
 
 
 def format_name(name: str, mode: str = "full") -> str:

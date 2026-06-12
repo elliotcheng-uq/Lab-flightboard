@@ -164,6 +164,7 @@
       <div>
         <div class="check"><input type="checkbox" id="show_user_id"><label for="show_user_id">Show user ID</label></div>
         <div class="check"><input type="checkbox" id="show_email"><label for="show_email">Show email address</label></div>
+        <div class="check"><input type="checkbox" id="strip_parentheses" checked><label for="strip_parentheses">Strip "(...)" from names (building / instrument / user id)</label></div>
       </div>
       <div>
         <label>Name display</label>
@@ -274,6 +275,8 @@ function instrumentRow(data) {
       field('display_order', 'Display order', data.display_order != null ? data.display_order : '', 'number') +
       '<div class="check" style="align-self:end;"><input type="checkbox" data-k="enabled" ' +
         (data.enabled === false ? '' : 'checked') + '><label>Enabled</label></div>' +
+      '<div class="check full"><input type="checkbox" data-k="incidents_only" ' +
+        (data.incidents_only ? 'checked' : '') + '><label>Incidents &amp; interventions only (no tile - shows in the bottom ticker only)</label></div>' +
     '</div>';
   document.getElementById('instruments').appendChild(div);
 }
@@ -338,6 +341,7 @@ function buildConfig() {
     if (o.summary_strip) inst.summary_strip = o.summary_strip;
     if (o.display_order !== '' && o.display_order != null) inst.display_order = parseInt(o.display_order, 10);
     if (o.enabled === false) inst.enabled = false;
+    if (o.incidents_only) inst.incidents_only = true;
     instruments.push(inst);
   }
 
@@ -354,6 +358,7 @@ function buildConfig() {
     display_options: {
       show_user_id: document.getElementById('show_user_id').checked,
       show_email: document.getElementById('show_email').checked,
+      strip_parentheses: document.getElementById('strip_parentheses').checked,
       name_display: radio('name_display'),
       day_window: radio('day_window'),
       business_start: val('business_start'),
@@ -425,6 +430,7 @@ function populate(cfg) {
   var o = cfg.display_options || {};
   document.getElementById('show_user_id').checked = !!o.show_user_id;
   document.getElementById('show_email').checked = !!o.show_email;
+  document.getElementById('strip_parentheses').checked = (o.strip_parentheses !== false);
   setRadio('name_display', o.name_display || 'full');
   setRadio('day_window', o.day_window || 'full');
   setVal('business_start', o.business_start || '09:00');

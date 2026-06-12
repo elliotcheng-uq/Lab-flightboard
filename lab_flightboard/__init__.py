@@ -16,6 +16,7 @@ from .ical_parser import (
 )
 from .billboard import (
     InstrumentView,
+    auto_strip_terms,
     build_instrument_view,
     classify_incident,
     clean_title,
@@ -57,6 +58,7 @@ __all__ = [
     "enabled_equipment",
     # Billboard
     "InstrumentView",
+    "auto_strip_terms",
     "build_instrument_view",
     "classify_incident",
     "clean_title",

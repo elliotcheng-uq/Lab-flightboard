@@ -7,6 +7,7 @@ from datetime import datetime, timedelta, timezone
 import pytest
 
 from lab_flightboard.billboard import (
+    auto_strip_terms,
     build_instrument_view,
     classify_incident,
     clean_title,
@@ -58,6 +59,45 @@ def test_clean_title_no_strip():
 
 def test_clean_title_empty_falls_back():
     assert clean_title("", None) == "Booked"
+
+
+# Real RIMS-style titles: "<BUILDING INSTRUMENT> <Name> (<BUILDING INSTRUMENT>)"
+def test_clean_title_strips_prefix_and_trailing_label():
+    title = "HAWKEN JEOL 7100F Lin Chih-Ling Jenny (HAWKEN JEOL 7100F)"
+    assert clean_title(title, None) == "Lin Chih-Ling Jenny"
+
+
+def test_clean_title_strips_userid_parens_with_configured_term():
+    title = "HAWKEN JEOL 7800 Yang Xingchen ( s4773903 )"
+    assert clean_title(title, "HAWKEN JEOL 7800") == "Yang Xingchen"
+
+
+def test_clean_title_keeps_parens_when_disabled():
+    title = "Alice (HAWKEN)"
+    assert clean_title(title, None, strip_parentheses=False) == "Alice (HAWKEN)"
+
+
+def test_auto_strip_terms_finds_repeated_label():
+    titles = [
+        "HAWKEN JEOL 7800 Yang Xingchen ( s4773903 )",
+        "HAWKEN JEOL 7800 Vu Hoai Duc (HAWKEN JEOL 7800)",
+        "HAWKEN JEOL 7800 Zhang Han ( s4701144 ) (HAWKEN JEOL 7800)",
+    ]
+    terms = auto_strip_terms(titles)
+    assert "HAWKEN JEOL 7800" in terms
+    # Unique user ids should NOT be treated as strip terms
+    assert "s4773903" not in terms
+
+
+def test_auto_strip_terms_then_clean_handles_userid_only_booking():
+    titles = [
+        "HAWKEN JEOL 7800 Yang Xingchen ( s4773903 )",
+        "HAWKEN JEOL 7800 Vu Hoai Duc (HAWKEN JEOL 7800)",
+        "HAWKEN JEOL 7800 Ren Daming (HAWKEN JEOL 7800)",
+    ]
+    terms = auto_strip_terms(titles)
+    # The userid-only booking is cleaned thanks to the label learned from peers
+    assert clean_title(titles[0], terms) == "Yang Xingchen"
 
 
 # ---------------------------------------------------------------------------
@@ -294,6 +334,28 @@ def test_parse_instrument_room_optional():
         ]
     })
     assert cfg.instruments[0].room is None
+
+
+def test_parse_instrument_incidents_only():
+    cfg = parse_billboard_config({
+        "instruments": [
+            {"equipment_id": "a", "equipment_name": "A", "calendar_url": "demo://incident", "incidents_only": True}
+        ]
+    })
+    assert cfg.instruments[0].incidents_only is True
+
+
+def test_strip_parentheses_default_true():
+    cfg = parse_billboard_config({"instruments": []})
+    assert cfg.display_options.strip_parentheses is True
+
+
+def test_strip_parentheses_can_disable():
+    cfg = parse_billboard_config({
+        "instruments": [],
+        "display_options": {"strip_parentheses": False},
+    })
+    assert cfg.display_options.strip_parentheses is False
 
 
 def test_enabled_instruments_sorted_and_filtered():

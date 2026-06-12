@@ -178,6 +178,16 @@ path: `python examples/billboard_app.py path/to/config.json`).
 | `day_window` | `"full"` | `"full"` lists all of today's bookings; `"business"` lists only those overlapping business hours |
 | `business_start` | `"09:00"` | Start of the business window (used when `day_window` is `"business"`) |
 | `business_end` | `"18:00"` | End of the business window |
+| `strip_parentheses` | `true` | Remove `(...)` groups (instrument label, user id) from booking titles so only the person's name shows |
+
+> **Booking names are cleaned automatically.** Many systems stamp every booking
+> with the building + instrument, e.g.
+> `HAWKEN JEOL 7100F Lin Chih-Ling Jenny (HAWKEN JEOL 7100F)`. The board strips
+> the `(...)` groups and the repeated building/instrument label (it detects the
+> label that recurs across the feed), leaving just `Lin Chih-Ling Jenny`. If a
+> few bookings still show the prefix, set that instrument's **Strip from titles**
+> (`summary_strip`) to the exact building+instrument text, e.g.
+> `HAWKEN JEOL 7800`.
 
 > `show_user_id` and `show_email` are **off by default**, and when off the
 > values are never even sent to the browser. `day_window` only affects which
@@ -196,6 +206,15 @@ path: `python examples/billboard_app.py path/to/config.json`).
 | `summary_strip` | no | Text to remove from every booking title (e.g. the repeated instrument name) so tiles show just the person |
 | `display_order` | no | Sort order on the board (lower first) |
 | `enabled` | no | Set `false` to hide without deleting (default `true`) |
+| `incidents_only` | no | Give this entry **no tile**; its feed only contributes incidents/interventions to the scrolling ticker |
+
+### Incident-only entries
+
+Tick **Incidents & interventions only** on an instrument (or set
+`"incidents_only": true`) to add an equipment whose feed should **not** appear as
+a calendar tile — its events are surfaced only in the bottom incident ticker.
+Use this for a dedicated incident/maintenance calendar, or for equipment where
+you want to broadcast outages without showing its bookings on the board.
 
 > `webcal://` URLs are converted to `https://` automatically.
 

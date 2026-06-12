@@ -49,6 +49,7 @@ from flask import Flask, jsonify, request
 
 from lab_flightboard import (
     BillboardConfigError,
+    auto_strip_terms,
     build_instrument_view,
     clean_title,
     email_local_part,
@@ -187,8 +188,9 @@ def occurrences_for_url(url, equipment_id, equipment_name, start, end, now):
 
 
 def load_instrument(inst, config, tz, now, start, end):
+    strip_terms = [inst.summary_strip] if inst.summary_strip else []
     try:
-        booking_events = occurrences_for_url(
+        feed_events = occurrences_for_url(
             inst.calendar_url, inst.equipment_id, inst.equipment_name, start, end, now
         )
         incident_events = []
@@ -196,14 +198,24 @@ def load_instrument(inst, config, tz, now, start, end):
             incident_events = occurrences_for_url(
                 inst.incident_url, inst.equipment_id, inst.equipment_name, start, end, now
             )
+        # Auto-detect the building/instrument label that repeats across this
+        # feed, so it is stripped from every booking name without configuration.
+        titles = [e.title for e in feed_events] + [e.title for e in incident_events]
+        strip_terms = strip_terms + auto_strip_terms(titles)
+
+        if inst.incidents_only:
+            # No tile: the whole feed feeds the incident ticker only.
+            incident_events = list(feed_events) + list(incident_events)
+            feed_events = []
+
         view = build_instrument_view(
             inst.equipment_id, inst.equipment_name,
-            booking_events, incident_events, now, tz,
+            feed_events, incident_events, now, tz,
             config.incident_categories, config.incident_keywords,
         )
     except Exception as exc:
         view = InstrumentView(inst.equipment_id, inst.equipment_name, "nodata", error=str(exc))
-    return _serialize(view, config, inst, tz, now)
+    return _serialize(view, config, inst, tz, now, strip_terms)
 
 
 def _fmt_hm(dt, tz):
@@ -214,16 +226,17 @@ def _fmt_full(dt, tz):
     return dt.astimezone(tz).strftime("%a %d %b %H:%M")
 
 
-def _serialize(view, config, inst, tz, now):
+def _serialize(view, config, inst, tz, now, strip_terms):
     opts = config.display_options
     d = {
         "name": view.equipment_name,
         "room": inst.room,
         "status": view.status,
         "error": view.error,
+        "ticker_only": inst.incidents_only,
         "incidents": [
             {
-                "title": clean_title(i.title, inst.summary_strip),
+                "title": clean_title(i.title, strip_terms, opts.strip_parentheses),
                 "start": _fmt_full(i.start, tz),
                 "end": _fmt_full(i.end or i.start, tz),
                 "active": is_active(i, now),
@@ -231,9 +244,8 @@ def _serialize(view, config, inst, tz, now):
             for i in view.incidents
         ],
     }
-    # In status-only mode we deliberately do NOT send booking names/times to the
-    # browser - the tile shows availability only, the ticker shows incidents.
-    if config.mode != "full":
+    # incidents_only entries have no tile; status-only mode hides booking detail.
+    if inst.incidents_only or config.mode != "full":
         d["bookings"] = []
         return d
 
@@ -245,7 +257,10 @@ def _serialize(view, config, inst, tz, now):
         ):
             continue
         row = {
-            "name": format_name(clean_title(b.title, inst.summary_strip), opts.name_display),
+            "name": format_name(
+                clean_title(b.title, strip_terms, opts.strip_parentheses),
+                opts.name_display,
+            ),
             "start": _fmt_hm(b.start, tz),
             "end": _fmt_hm(b.end, tz) if b.end else "",
             "active": is_active(b, now),
@@ -547,8 +562,10 @@ function buildTicker(data) {
 }
 
 function render(data) {
+  // ticker_only entries have no tile; they only feed the incident ticker.
+  var tiles = data.filter(function (d) { return !d.ticker_only; });
   pages = [];
-  for (var i = 0; i < data.length; i += PER_PAGE) pages.push(data.slice(i, i + PER_PAGE));
+  for (var i = 0; i < tiles.length; i += PER_PAGE) pages.push(tiles.slice(i, i + PER_PAGE));
   if (curPage >= pages.length) curPage = 0;
   drawPage();
   buildTicker(data);

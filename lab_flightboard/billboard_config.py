@@ -29,6 +29,9 @@ class DisplayOptions:
     day_window: str = "full"       # "full" (all day) | "business" (e.g. 9-6)
     business_start: str = "09:00"
     business_end: str = "18:00"
+    # Strip "(...)" groups (instrument name, user id) from booking titles so
+    # only the person's name shows. On by default.
+    strip_parentheses: bool = True
 
 
 @dataclass
@@ -41,6 +44,9 @@ class BillboardInstrument:
     summary_strip: Optional[str] = None
     display_order: Optional[int] = None
     enabled: bool = True
+    # When True this entry gets no calendar tile - its feed only contributes
+    # incidents/interventions to the scrolling ticker.
+    incidents_only: bool = False
 
 
 @dataclass
@@ -126,6 +132,7 @@ def _parse_display_options(raw: object) -> DisplayOptions:
         day_window=day_window,
         business_start=str(raw.get("business_start", "09:00")),
         business_end=str(raw.get("business_end", "18:00")),
+        strip_parentheses=bool(raw.get("strip_parentheses", True)),
     )
 
 
@@ -146,6 +153,7 @@ def _parse_instrument(item: object, idx: int) -> BillboardInstrument:
         summary_strip=item.get("summary_strip"),
         display_order=item.get("display_order"),
         enabled=bool(item.get("enabled", True)),
+        incidents_only=bool(item.get("incidents_only", False)),
     )
 
 
