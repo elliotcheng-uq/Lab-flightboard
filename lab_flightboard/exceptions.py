@@ -12,3 +12,7 @@ class CalendarParseError(LabFlightboardError):
 
 class EquipmentConfigError(LabFlightboardError):
     pass
+
+
+class BillboardConfigError(LabFlightboardError):
+    pass

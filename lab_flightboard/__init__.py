@@ -1,4 +1,5 @@
 from .exceptions import (
+    BillboardConfigError,
     CalendarFetchError,
     CalendarParseError,
     EquipmentConfigError,
@@ -13,6 +14,21 @@ from .ical_parser import (
     parse_ical_bytes,
     parse_occurrences_from_url,
 )
+from .billboard import (
+    InstrumentView,
+    build_instrument_view,
+    classify_incident,
+    clean_title,
+    derive_status,
+    is_active,
+)
+from .billboard_config import (
+    BillboardConfig,
+    BillboardInstrument,
+    enabled_instruments,
+    load_billboard_config,
+    parse_billboard_config,
+)
 from .models import CalendarBooking, EquipmentCalendar, Incident
 
 __version__ = "0.1.0"
@@ -25,6 +41,7 @@ __all__ = [
     "CalendarFetchError",
     "CalendarParseError",
     "EquipmentConfigError",
+    "BillboardConfigError",
     "fetch_ical_from_url",
     "parse_ical_bytes",
     "component_to_booking",
@@ -34,4 +51,16 @@ __all__ = [
     "load_equipment_config",
     "load_equipment_config_from_str",
     "enabled_equipment",
+    # Billboard
+    "InstrumentView",
+    "build_instrument_view",
+    "classify_incident",
+    "clean_title",
+    "derive_status",
+    "is_active",
+    "BillboardConfig",
+    "BillboardInstrument",
+    "enabled_instruments",
+    "load_billboard_config",
+    "parse_billboard_config",
 ]
