@@ -15,7 +15,8 @@
     "name_display": "full",
     "day_window": "full",
     "business_start": "09:00",
-    "business_end": "18:00"
+    "business_end": "18:00",
+    "strip_parentheses": true
   },
   "instruments": [
     {
@@ -65,6 +66,12 @@
       "calendar_url": "demo://free",
       "summary_strip": "DEMO",
       "display_order": 6
+    },
+    {
+      "equipment_id": "facility-incidents",
+      "equipment_name": "Facility Incidents",
+      "calendar_url": "demo://incident",
+      "incidents_only": true
     }
   ]
 }

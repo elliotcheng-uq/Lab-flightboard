@@ -37,10 +37,29 @@ cp examples/billboard_config.example.json billboard_config.json   # git-ignored
 # edit billboard_config.json: replace demo:// feeds with your iCal URLs
 ```
 
-Prefer a form? Open `examples/config_builder.html` (or visit `/config` while the
-app runs) to fill in instruments and display options — including show/hide user
-ID & email, full name vs initials, full-day vs business-hours, and instruments
-per screen — then download `billboard_config.json`.
+### Edit it in the browser (no JSON by hand)
+
+Visit **`http://localhost:5200/config`** while the app runs (or open
+`examples/config_builder.html` directly). The form covers every setting, and
+**Save to server & apply** writes `billboard_config.json` and applies it live —
+no restart. Use **Load current server config** to pull the running config back
+into the form.
+
+### Key billboard features
+
+- **Live colour-coded tiles** — green (free), orange (in use), red (down) — in a
+  3×2 grid that paginates/rotates when you have more instruments than fit.
+- **Scrolling incident ticker** along the bottom for active and upcoming
+  incidents/interventions.
+- **Room number** shown under each instrument name.
+- **Auto-cleaned booking names** — strips the building + instrument and user-id
+  text that booking systems stamp on every title, leaving just the person.
+- **Display options:** show/hide user ID & email, full name vs initials,
+  full-day vs business-hours, instruments-per-screen and rotate interval.
+- **Incidents-only entries** — equipment that feeds the ticker only, with no tile.
+- **Long names and busy tiles auto-scroll** so nothing is cut off.
+- **Two modes:** `full` (show bookings) or `status-only` (public screens — no
+  names/times, incidents still scroll).
 
 See **[docs/billboard.md](docs/billboard.md)** for the full config reference and
 display modes, and **[docs/deployment_raspberry_pi.md](docs/deployment_raspberry_pi.md)**
@@ -72,9 +91,10 @@ pytest
 
 | Doc | What it covers |
 |---|---|
-| [docs/billboard.md](docs/billboard.md) | The display design, config reference, `full` vs `status-only` modes, incident detection |
+| [docs/billboard.md](docs/billboard.md) | The display design, config reference, display options, modes, incident detection, applying changes |
 | [docs/deployment_raspberry_pi.md](docs/deployment_raspberry_pi.md) | Running the board on a Raspberry Pi (systemd + Chromium kiosk) |
 | [docs/field_extraction.md](docs/field_extraction.md) | How instrument, date/time, user, and incident fields are pulled from iCal |
+| [docs/config_reference.md](docs/config_reference.md) | Every `billboard_config.json` field in one place, with an annotated example |
 
 ## Display modes
 
