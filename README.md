@@ -37,6 +37,11 @@ cp examples/billboard_config.example.json billboard_config.json   # git-ignored
 # edit billboard_config.json: replace demo:// feeds with your iCal URLs
 ```
 
+Prefer a form? Open `examples/config_builder.html` (or visit `/config` while the
+app runs) to fill in instruments and display options — including show/hide user
+ID & email, full name vs initials, full-day vs business-hours, and instruments
+per screen — then download `billboard_config.json`.
+
 See **[docs/billboard.md](docs/billboard.md)** for the full config reference and
 display modes, and **[docs/deployment_raspberry_pi.md](docs/deployment_raspberry_pi.md)**
 for running it on a Pi in kiosk mode.

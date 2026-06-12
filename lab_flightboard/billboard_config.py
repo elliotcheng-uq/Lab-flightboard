@@ -16,6 +16,20 @@ _REQUIRED_INSTRUMENT = ("equipment_id", "equipment_name", "calendar_url")
 
 _DEFAULT_INCIDENT_CATEGORIES = ["Incident", "Intervention", "Maintenance", "Down"]
 
+_NAME_DISPLAYS = ("full", "initials")
+_DAY_WINDOWS = ("full", "business")
+
+
+@dataclass
+class DisplayOptions:
+    """Per-board privacy and layout choices, set from the config form."""
+    show_user_id: bool = False
+    show_email: bool = False
+    name_display: str = "full"     # "full" | "initials"
+    day_window: str = "full"       # "full" (all day) | "business" (e.g. 9-6)
+    business_start: str = "09:00"
+    business_end: str = "18:00"
+
 
 @dataclass
 class BillboardInstrument:
@@ -42,6 +56,7 @@ class BillboardConfig:
         default_factory=lambda: list(_DEFAULT_INCIDENT_CATEGORIES)
     )
     incident_keywords: list[str] = field(default_factory=list)
+    display_options: DisplayOptions = field(default_factory=DisplayOptions)
     instruments: list[BillboardInstrument] = field(default_factory=list)
 
 
@@ -72,6 +87,7 @@ def parse_billboard_config(raw: object) -> BillboardConfig:
         raise BillboardConfigError("'instruments' must be a JSON array")
 
     instruments = [_parse_instrument(i, idx) for idx, i in enumerate(instruments_raw)]
+    display_options = _parse_display_options(raw.get("display_options", {}) or {})
 
     return BillboardConfig(
         title=str(raw.get("title", "Lab Flightboard")),
@@ -84,7 +100,31 @@ def parse_billboard_config(raw: object) -> BillboardConfig:
         mode=mode,
         incident_categories=list(raw.get("incident_categories", _DEFAULT_INCIDENT_CATEGORIES)),
         incident_keywords=list(raw.get("incident_keywords", [])),
+        display_options=display_options,
         instruments=instruments,
+    )
+
+
+def _parse_display_options(raw: object) -> DisplayOptions:
+    if not isinstance(raw, dict):
+        raise BillboardConfigError("'display_options' must be a JSON object")
+    name_display = str(raw.get("name_display", "full"))
+    if name_display not in _NAME_DISPLAYS:
+        raise BillboardConfigError(
+            f"display_options.name_display must be one of {_NAME_DISPLAYS}, got {name_display!r}"
+        )
+    day_window = str(raw.get("day_window", "full"))
+    if day_window not in _DAY_WINDOWS:
+        raise BillboardConfigError(
+            f"display_options.day_window must be one of {_DAY_WINDOWS}, got {day_window!r}"
+        )
+    return DisplayOptions(
+        show_user_id=bool(raw.get("show_user_id", False)),
+        show_email=bool(raw.get("show_email", False)),
+        name_display=name_display,
+        day_window=day_window,
+        business_start=str(raw.get("business_start", "09:00")),
+        business_end=str(raw.get("business_end", "18:00")),
     )
 
 

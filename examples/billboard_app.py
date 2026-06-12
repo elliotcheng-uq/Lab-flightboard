@@ -50,8 +50,11 @@ from lab_flightboard import (
     BillboardConfigError,
     build_instrument_view,
     clean_title,
+    email_local_part,
+    format_name,
     is_active,
     load_billboard_config,
+    overlaps_business,
     parse_billboard_config,
     parse_events_from_calendar,
     parse_ical_bytes,
@@ -103,7 +106,7 @@ def _ics_dt(dt: datetime) -> str:
 
 def make_demo_feed(kind: str, now: datetime) -> bytes:
     """Generate a tiny ICS feed for placeholder instruments."""
-    def vevent(uid, start, end, summary, categories=None):
+    def vevent(uid, start, end, summary, categories=None, organiser=None):
         lines = [
             "BEGIN:VEVENT",
             "UID:" + uid,
@@ -112,6 +115,8 @@ def make_demo_feed(kind: str, now: datetime) -> bytes:
             "DTEND:" + _ics_dt(end),
             "SUMMARY:" + summary,
         ]
+        if organiser:
+            lines.append("ORGANIZER:mailto:" + organiser)
         if categories:
             lines.append("CATEGORIES:" + categories)
         lines.append("END:VEVENT")
@@ -119,13 +124,28 @@ def make_demo_feed(kind: str, now: datetime) -> bytes:
 
     events = []
     if kind == "booking":
+        # Several bookings (some overflow the tile -> vertical auto-scroll), and
+        # a deliberately long name to demonstrate horizontal name scrolling.
         events.append(vevent("demo-b1@local", now - timedelta(hours=1),
-                             now + timedelta(hours=1), "A. Researcher (DEMO)"))
-        events.append(vevent("demo-b2@local", now + timedelta(hours=2),
-                             now + timedelta(hours=3), "B. Student (DEMO)"))
+                             now + timedelta(hours=1), "Alice Researcher (DEMO)",
+                             organiser="alice.researcher@example.edu"))
+        events.append(vevent("demo-b2@local", now + timedelta(hours=1),
+                             now + timedelta(hours=2), "Bob Student (DEMO)",
+                             organiser="bob.student@example.edu"))
+        events.append(vevent("demo-b3@local", now + timedelta(hours=2),
+                             now + timedelta(hours=3),
+                             "Wolfgang Amadeus Vandersloot-Featherington (DEMO)",
+                             organiser="wolfgang.vandersloot@example.edu"))
+        events.append(vevent("demo-b4@local", now + timedelta(hours=3),
+                             now + timedelta(hours=4), "Dana Lee (DEMO)",
+                             organiser="dana.lee@example.edu"))
+        events.append(vevent("demo-b5@local", now + timedelta(hours=4),
+                             now + timedelta(hours=5), "Evan Kim (DEMO)",
+                             organiser="evan.kim@example.edu"))
     elif kind == "free":
         events.append(vevent("demo-f1@local", now + timedelta(hours=3),
-                             now + timedelta(hours=4), "C. User (DEMO)"))
+                             now + timedelta(hours=4), "Carol Nanofab (DEMO)",
+                             organiser="carol.nanofab@example.edu"))
     elif kind == "incident":
         events.append(vevent("demo-i1@local", now - timedelta(minutes=30),
                              now + timedelta(days=2),
@@ -182,6 +202,7 @@ def _fmt_full(dt, tz):
 
 
 def _serialize(view, config, inst, tz, now):
+    opts = config.display_options
     d = {
         "name": view.equipment_name,
         "status": view.status,
@@ -198,18 +219,33 @@ def _serialize(view, config, inst, tz, now):
     }
     # In status-only mode we deliberately do NOT send booking names/times to the
     # browser - the tile shows availability only, the ticker shows incidents.
-    if config.mode == "full":
-        d["bookings"] = [
-            {
-                "name": clean_title(b.title, inst.summary_strip),
-                "start": _fmt_hm(b.start, tz),
-                "end": _fmt_hm(b.end, tz) if b.end else "",
-                "active": is_active(b, now),
-            }
-            for b in view.bookings
-        ]
-    else:
+    if config.mode != "full":
         d["bookings"] = []
+        return d
+
+    rows = []
+    for b in view.bookings:
+        # "9 to 6" option: list only bookings overlapping business hours.
+        if opts.day_window == "business" and not overlaps_business(
+            b, tz, opts.business_start, opts.business_end
+        ):
+            continue
+        row = {
+            "name": format_name(clean_title(b.title, inst.summary_strip), opts.name_display),
+            "start": _fmt_hm(b.start, tz),
+            "end": _fmt_hm(b.end, tz) if b.end else "",
+            "active": is_active(b, now),
+        }
+        # Privacy: only include userID / email when the option is enabled, so
+        # they are never even sent to the browser otherwise.
+        if opts.show_email and b.organiser:
+            row["email"] = b.organiser
+        if opts.show_user_id:
+            uid = email_local_part(b.organiser)
+            if uid:
+                row["user_id"] = uid
+        rows.append(row)
+    d["bookings"] = rows
     return d
 
 
@@ -281,18 +317,22 @@ body {
 
 .panel-head { display: flex; align-items: baseline; justify-content: space-between; gap: 0.8vw; }
 .panel-name { font-size: 1.75vw; font-weight: 800; line-height: 1.05;
-              white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+              white-space: nowrap; overflow: hidden; flex: 1 1 auto; }
 .panel-status { font-size: 1.5vw; font-weight: 800; letter-spacing: 0.05em;
-                white-space: nowrap; opacity: 0.95; }
+                white-space: nowrap; opacity: 0.95; flex: 0 0 auto; }
 
-.bookings { margin-top: 0.7vw; display: flex; flex-direction: column;
-            gap: 0.35vw; overflow: hidden; }
+/* Booking list. .bookings clips; .bookings-inner is what scrolls vertically. */
+.bookings { margin-top: 0.7vw; overflow: hidden; flex: 1 1 auto; min-height: 0; }
+.bookings-inner { display: flex; flex-direction: column; gap: 0.35vw; }
 .brow { display: flex; align-items: baseline; gap: 0.8vw;
         background: rgba(0,0,0,0.18); border-radius: 0.4vw;
         padding: 0.3vw 0.7vw; font-size: 1.12vw; }
 .brow.now { background: rgba(255,255,255,0.26); font-weight: 800; }
-.btime { font-variant-numeric: tabular-nums; white-space: nowrap; }
-.bname { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.btime { font-variant-numeric: tabular-nums; white-space: nowrap; flex: 0 0 auto; }
+.bname { overflow: hidden; white-space: nowrap; flex: 1 1 auto; }
+.bmeta { color: rgba(255,255,255,0.72); font-weight: 600; }
+/* The inner span is translated by JS when its text overflows the tile. */
+.scroller { display: inline-block; will-change: transform; }
 
 .note-line { margin-top: 0.7vw; font-size: 1.05vw; font-weight: 600; opacity: 0.85; }
 .status-big { margin: auto 0; font-size: 2.6vw; font-weight: 800; opacity: 0.92; }
@@ -377,7 +417,7 @@ function panelHTML(inst) {
   var st = inst.status || 'nodata';
   var h = '<div class="panel ' + st + '">';
   h += '<div class="panel-head">';
-  h += '<div class="panel-name">' + esc(inst.name) + '</div>';
+  h += '<div class="panel-name"><span class="scroller">' + esc(inst.name) + '</span></div>';
   h += '<div class="panel-status">' + (STATUS_WORD[st] || '') + '</div>';
   h += '</div>';
 
@@ -388,7 +428,7 @@ function panelHTML(inst) {
   } else if (MODE === 'status-only') {
     h += '<div class="status-big">' + (st === 'inuse' ? 'In use' : st === 'nodata' ? 'No data' : 'Available') + '</div>';
   } else {
-    h += '<div class="bookings">';
+    h += '<div class="bookings"><div class="bookings-inner">';
     if (inst.error) {
       h += '<div class="note-line">calendar unavailable</div>';
     } else if (!inst.bookings || !inst.bookings.length) {
@@ -396,13 +436,17 @@ function panelHTML(inst) {
     } else {
       for (var i = 0; i < inst.bookings.length; i++) {
         var b = inst.bookings[i];
+        var meta = [];
+        if (b.user_id) meta.push(esc(b.user_id));
+        if (b.email) meta.push(esc(b.email));
+        var metaHTML = meta.length ? ' <span class="bmeta">' + meta.join(' &middot; ') + '</span>' : '';
         h += '<div class="brow' + (b.active ? ' now' : '') + '">';
         h += '<span class="btime">' + esc(b.start) + '-' + esc(b.end) + '</span>';
-        h += '<span class="bname">' + esc(b.name) + '</span>';
+        h += '<span class="bname"><span class="scroller">' + esc(b.name) + metaHTML + '</span></span>';
         h += '</div>';
       }
     }
-    h += '</div>';
+    h += '</div></div>';
   }
   h += '</div>';
   return h;
@@ -421,6 +465,44 @@ function drawPage() {
     ind.textContent = (curPage + 1) + ' / ' + pages.length;
   } else {
     ind.style.display = 'none';
+  }
+  requestAnimationFrame(applyScrollers);
+}
+
+// Animate any name that is wider than its tile (horizontal), and any booking
+// list that is taller than its tile (vertical). Runs after each draw.
+function applyScrollers() {
+  var names = document.querySelectorAll('.panel-name .scroller, .bname .scroller');
+  for (var i = 0; i < names.length; i++) {
+    var s = names[i];
+    var over = s.scrollWidth - s.parentElement.clientWidth;
+    if (over > 4) {
+      var dur = Math.max(5000, over * 55);
+      s.animate([
+        { transform: 'translateX(0)' },
+        { transform: 'translateX(0)', offset: 0.12 },
+        { transform: 'translateX(-' + over + 'px)', offset: 0.50 },
+        { transform: 'translateX(-' + over + 'px)', offset: 0.62 },
+        { transform: 'translateX(0)', offset: 1 }
+      ], { duration: dur, iterations: Infinity });
+    }
+  }
+  var lists = document.querySelectorAll('.bookings');
+  for (var j = 0; j < lists.length; j++) {
+    var box = lists[j];
+    var inner = box.querySelector('.bookings-inner');
+    if (!inner) continue;
+    var overY = inner.scrollHeight - box.clientHeight;
+    if (overY > 4) {
+      var durY = Math.max(6000, overY * 110);
+      inner.animate([
+        { transform: 'translateY(0)' },
+        { transform: 'translateY(0)', offset: 0.10 },
+        { transform: 'translateY(-' + overY + 'px)', offset: 0.50 },
+        { transform: 'translateY(-' + overY + 'px)', offset: 0.60 },
+        { transform: 'translateY(0)', offset: 1 }
+      ], { duration: durY, iterations: Infinity });
+    }
   }
 }
 
@@ -492,6 +574,13 @@ def index():
 def api_status():
     cfg = app.config["BILLBOARD"]
     return jsonify({"ok": True, "instruments": fetch_all(cfg)})
+
+
+@app.route("/config")
+def config_builder():
+    """Serve the standalone config-builder form (also openable as a file)."""
+    path = Path(__file__).parent / "config_builder.html"
+    return path.read_text(encoding="utf-8")
 
 
 def main():

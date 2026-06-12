@@ -11,7 +11,10 @@ from lab_flightboard.billboard import (
     classify_incident,
     clean_title,
     derive_status,
+    email_local_part,
+    format_name,
     is_active,
+    overlaps_business,
 )
 from lab_flightboard.billboard_config import (
     enabled_instruments,
@@ -187,6 +190,92 @@ def test_parse_config_requires_instrument_fields():
         parse_billboard_config({
             "instruments": [{"equipment_id": "a", "equipment_name": "A"}]
         })
+
+
+def test_parse_display_options():
+    cfg = parse_billboard_config({
+        "instruments": [],
+        "display_options": {
+            "show_user_id": True,
+            "show_email": True,
+            "name_display": "initials",
+            "day_window": "business",
+            "business_start": "08:00",
+            "business_end": "17:00",
+        },
+    })
+    opts = cfg.display_options
+    assert opts.show_user_id is True
+    assert opts.name_display == "initials"
+    assert opts.day_window == "business"
+    assert opts.business_start == "08:00"
+
+
+def test_display_options_default_when_absent():
+    cfg = parse_billboard_config({"instruments": []})
+    assert cfg.display_options.name_display == "full"
+    assert cfg.display_options.day_window == "full"
+    assert cfg.display_options.show_email is False
+
+
+def test_parse_config_rejects_bad_name_display():
+    with pytest.raises(BillboardConfigError, match="name_display"):
+        parse_billboard_config({
+            "instruments": [],
+            "display_options": {"name_display": "shouting"},
+        })
+
+
+def test_parse_config_rejects_bad_day_window():
+    with pytest.raises(BillboardConfigError, match="day_window"):
+        parse_billboard_config({
+            "instruments": [],
+            "display_options": {"day_window": "midnight"},
+        })
+
+
+# ---------------------------------------------------------------------------
+# Display helpers
+# ---------------------------------------------------------------------------
+
+def test_format_name_full():
+    assert format_name("Alice Researcher", "full") == "Alice Researcher"
+
+
+def test_format_name_initials():
+    assert format_name("Alice Researcher", "initials") == "A. R."
+
+
+def test_format_name_initials_single_word():
+    assert format_name("Madonna", "initials") == "M."
+
+
+def test_email_local_part():
+    assert email_local_part("a.smith@example.edu") == "a.smith"
+
+
+def test_email_local_part_none():
+    assert email_local_part(None) is None
+
+
+def test_overlaps_business_inside():
+    b = booking(2, 3)  # NOW=10:00 UTC, so 12:00-13:00
+    assert overlaps_business(b, UTC, "09:00", "18:00") is True
+
+
+def test_overlaps_business_outside():
+    b = booking(-3, -2)  # 07:00-08:00 UTC
+    assert overlaps_business(b, UTC, "09:00", "18:00") is False
+
+
+def test_overlaps_business_straddling_start():
+    # 08:30-09:30 overlaps a 09:00 start
+    b = CalendarBooking(
+        uid="x", equipment_id="e", equipment_name="E", title="T",
+        start=datetime(2026, 6, 15, 8, 30, tzinfo=UTC),
+        end=datetime(2026, 6, 15, 9, 30, tzinfo=UTC),
+    )
+    assert overlaps_business(b, UTC, "09:00", "18:00") is True
 
 
 def test_enabled_instruments_sorted_and_filtered():

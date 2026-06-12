@@ -50,6 +50,27 @@ def clean_title(title: Optional[str], strip: Optional[str]) -> str:
     return s or "Booked"
 
 
+def format_name(name: str, mode: str = "full") -> str:
+    """Render a person's name as either the full name or initials.
+
+    "Alice Researcher" -> "Alice Researcher"  (mode="full")
+    "Alice Researcher" -> "A. R."             (mode="initials")
+    """
+    if mode == "initials":
+        parts = [p for p in name.replace(".", " ").replace(",", " ").split() if p]
+        if not parts:
+            return name
+        return ". ".join(p[0].upper() for p in parts) + "."
+    return name
+
+
+def email_local_part(email: Optional[str]) -> Optional[str]:
+    """Derive a userID from an email address ("a.smith@x.edu" -> "a.smith")."""
+    if not email:
+        return None
+    return email.split("@", 1)[0] if "@" in email else email
+
+
 # ---------------------------------------------------------------------------
 # Time helpers
 # ---------------------------------------------------------------------------
@@ -72,6 +93,37 @@ def is_active(booking: CalendarBooking, now: datetime) -> bool:
     else:
         end = start
     return start <= now <= end
+
+
+def _hm_to_minutes(hm: str) -> int:
+    try:
+        h, m = hm.split(":")
+        return int(h) * 60 + int(m)
+    except (ValueError, AttributeError):
+        return 0
+
+
+def _minute_of_day(dt: datetime, tz) -> int:
+    local = dt.astimezone(tz)
+    return local.hour * 60 + local.minute
+
+
+def overlaps_business(booking: CalendarBooking, tz, start_hm: str, end_hm: str) -> bool:
+    """True if a booking overlaps the [start_hm, end_hm) window on its own day.
+
+    Used for the "9 to 6" display option, which lists only bookings inside
+    business hours. Status (free/inuse/down) is unaffected - it always reflects
+    the real calendar.
+    """
+    if booking.start is None:
+        return False
+    start_min = _hm_to_minutes(start_hm)
+    end_min = _hm_to_minutes(end_hm)
+    bs = _minute_of_day(booking.start, tz)
+    be = _minute_of_day(booking.end, tz) if booking.end else bs
+    if be < bs:  # crosses midnight; clamp to end of day for this check
+        be = 24 * 60
+    return bs < end_min and be > start_min
 
 
 # ---------------------------------------------------------------------------

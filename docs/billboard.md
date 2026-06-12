@@ -46,6 +46,9 @@ Other elements:
 - A live **clock + date** sits top-right.
 - If you have more instruments than fit on one screen (default 6, a 3x2 grid),
   the board **paginates and rotates** automatically, with a `1 / 2` indicator.
+- **Long names scroll** sideways and **busy tiles scroll** their booking list
+  vertically, so nothing is cut off no matter how long the name or how full the
+  day.
 
 ---
 
@@ -71,9 +74,22 @@ the server and opens the display in Edge kiosk mode.
 
 ---
 
+## Build your config in the browser (no JSON by hand)
+
+There is a fill-in-the-blanks form for producing `billboard_config.json`:
+
+- Open `examples/config_builder.html` directly in any browser, **or**
+- With the server running, visit `http://localhost:5200/config`.
+
+It has fields for the board settings (title, timezone, **instruments per
+screen** and the **rotate-every-N-seconds** scroll), all the display options
+below, and a freeform **Add instrument** list. Click **Download
+billboard_config.json** (or **Copy**) and drop the file next to the app. You can
+also paste an existing config back in to edit it.
+
 ## Add your own instruments
 
-Copy the example and edit it:
+Copy the example and edit it (or use the form above):
 
 ```bash
 cp examples/billboard_config.example.json billboard_config.json
@@ -124,6 +140,22 @@ path: `python examples/billboard_app.py path/to/config.json`).
 | `mode` | `"full"` | `"full"` or `"status-only"` (see below) |
 | `incident_categories` | Incident/Intervention/Maintenance/Down | CATEGORIES values that mark an event as an incident |
 | `incident_keywords` | `[]` | Substrings in a title that mark an event as an incident |
+
+**Display options** (`display_options`)
+
+| Field | Default | Description |
+|---|---|---|
+| `show_user_id` | `false` | Show a user ID next to each booking (derived from the organiser email's local part) |
+| `show_email` | `false` | Show the organiser email next to each booking |
+| `name_display` | `"full"` | `"full"` shows the whole name; `"initials"` shows e.g. `A. R.` |
+| `day_window` | `"full"` | `"full"` lists all of today's bookings; `"business"` lists only those overlapping business hours |
+| `business_start` | `"09:00"` | Start of the business window (used when `day_window` is `"business"`) |
+| `business_end` | `"18:00"` | End of the business window |
+
+> `show_user_id` and `show_email` are **off by default**, and when off the
+> values are never even sent to the browser. `day_window` only affects which
+> bookings are **listed** — an instrument still shows IN USE if a booking is
+> active outside the window.
 
 **Per-instrument settings**
 

@@ -9,6 +9,14 @@
   "mode": "full",
   "incident_categories": ["Incident", "Intervention", "Maintenance", "Down"],
   "incident_keywords": ["fault", "offline", "out of service"],
+  "display_options": {
+    "show_user_id": false,
+    "show_email": false,
+    "name_display": "full",
+    "day_window": "full",
+    "business_start": "09:00",
+    "business_end": "18:00"
+  },
   "instruments": [
     {
       "equipment_id": "sem-01",

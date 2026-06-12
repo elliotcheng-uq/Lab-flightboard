@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lab Flightboard - Config Builder</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-size: 14px; background: #0f1117; color: #e2e8f0; line-height: 1.5;
+    padding: 0 0 80px 0;
+  }
+  header {
+    background: #1a1d2e; border-bottom: 1px solid #2d3148;
+    padding: 16px 28px; position: sticky; top: 0; z-index: 10;
+    display: flex; align-items: center; gap: 12px;
+  }
+  header h1 { font-size: 18px; font-weight: 600; color: #f0f4ff; }
+  header .badge {
+    background: #2563eb; color: #fff; font-size: 10px; font-weight: 700;
+    padding: 2px 7px; border-radius: 4px; letter-spacing: 0.08em; text-transform: uppercase;
+  }
+  .wrap { max-width: 920px; margin: 0 auto; padding: 24px 28px; }
+
+  .card {
+    background: #141622; border: 1px solid #2d3148; border-radius: 10px;
+    padding: 20px 22px; margin-bottom: 20px;
+  }
+  .card h2 {
+    font-size: 13px; font-weight: 700; color: #93c5fd; text-transform: uppercase;
+    letter-spacing: 0.07em; margin-bottom: 4px;
+  }
+  .card .hint { font-size: 12px; color: #64748b; margin-bottom: 16px; }
+
+  .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
+  .grid.three { grid-template-columns: repeat(3, 1fr); }
+
+  label { display: block; font-size: 11px; font-weight: 600; color: #94a3b8;
+          text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 5px; }
+  input[type=text], input[type=number], input[type=time], select {
+    width: 100%; padding: 8px 10px; background: #0f1117; border: 1px solid #2d3148;
+    border-radius: 6px; color: #e2e8f0; font-size: 13px; outline: none;
+    transition: border-color .15s;
+  }
+  input:focus, select:focus { border-color: #2563eb; }
+  .field { display: flex; flex-direction: column; }
+  .field .sub { font-size: 11px; color: #64748b; margin-top: 4px; }
+
+  .check { display: flex; align-items: center; gap: 8px; padding: 8px 0; }
+  .check input { width: 16px; height: 16px; accent-color: #2563eb; }
+  .check label { margin: 0; text-transform: none; letter-spacing: 0; font-size: 13px;
+                 color: #e2e8f0; font-weight: 500; }
+
+  .radio-row { display: flex; gap: 18px; flex-wrap: wrap; }
+  .radio { display: flex; align-items: center; gap: 7px; }
+  .radio input { accent-color: #2563eb; }
+  .radio label { margin: 0; text-transform: none; letter-spacing: 0; font-size: 13px;
+                 color: #e2e8f0; font-weight: 500; }
+
+  /* Instruments */
+  .inst {
+    border: 1px solid #2d3148; border-radius: 8px; padding: 14px 16px;
+    margin-bottom: 12px; background: #0f1117; position: relative;
+  }
+  .inst-head { display: flex; justify-content: space-between; align-items: center;
+               margin-bottom: 12px; }
+  .inst-head .num { font-size: 12px; font-weight: 700; color: #60a5fa; }
+  .inst .grid { grid-template-columns: repeat(3, 1fr); }
+  .inst .full { grid-column: 1 / -1; }
+
+  button {
+    font-family: inherit; cursor: pointer; border: none; border-radius: 6px;
+    font-weight: 600; transition: background .15s;
+  }
+  .btn-add { background: #1e3a6e; color: #93c5fd; padding: 9px 16px; font-size: 13px;
+             border: 1px dashed #2563eb; width: 100%; }
+  .btn-add:hover { background: #24468a; }
+  .btn-remove { background: none; color: #f87171; font-size: 12px; padding: 4px 8px;
+                border: 1px solid #4b1818; }
+  .btn-remove:hover { background: #2d0a0a; }
+
+  /* Sticky action bar */
+  .actions {
+    position: fixed; bottom: 0; left: 0; right: 0; background: #1a1d2e;
+    border-top: 1px solid #2d3148; padding: 12px 28px; display: flex;
+    gap: 10px; align-items: center; z-index: 10;
+  }
+  .actions .spacer { flex: 1; }
+  .btn-primary { background: #2563eb; color: #fff; padding: 10px 18px; font-size: 14px; }
+  .btn-primary:hover { background: #1d4ed8; }
+  .btn-ghost { background: #141622; color: #cbd5e1; padding: 10px 16px; font-size: 13px;
+               border: 1px solid #2d3148; }
+  .btn-ghost:hover { border-color: #4b5563; }
+  .msg { font-size: 12px; color: #4ade80; }
+
+  /* Output / import */
+  textarea {
+    width: 100%; min-height: 240px; background: #0a0c15; border: 1px solid #1e2340;
+    border-radius: 6px; color: #cbd5e1; font-family: monospace; font-size: 12px;
+    padding: 12px; outline: none; resize: vertical;
+  }
+  details summary { cursor: pointer; font-size: 13px; color: #93c5fd; font-weight: 600;
+                    padding: 6px 0; }
+  .business-fields { display: none; gap: 14px; margin-top: 12px; }
+  .business-fields.show { display: grid; grid-template-columns: repeat(2, 1fr); }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Lab Flightboard</h1>
+  <span class="badge">Config Builder</span>
+</header>
+
+<div class="wrap">
+
+  <!-- Board settings -->
+  <div class="card">
+    <h2>Board settings</h2>
+    <p class="hint">Header text, timezone, and how the board paginates.</p>
+    <div class="grid">
+      <div class="field"><label>Title</label><input type="text" id="title" value="Lab Flightboard"></div>
+      <div class="field"><label>Subtitle</label><input type="text" id="subtitle" value="Instrument Status"></div>
+      <div class="field">
+        <label>Timezone (IANA)</label>
+        <input type="text" id="timezone" value="Australia/Brisbane">
+        <span class="sub">e.g. Australia/Brisbane, Europe/London, America/New_York</span>
+      </div>
+      <div class="field">
+        <label>Mode</label>
+        <select id="mode">
+          <option value="full">full - show bookings on each tile</option>
+          <option value="status-only">status-only - hide bookings, incidents only</option>
+        </select>
+        <span class="sub">status-only never sends booking names to the screen</span>
+      </div>
+    </div>
+    <div class="grid three" style="margin-top:14px;">
+      <div class="field">
+        <label>Instruments per screen</label>
+        <input type="number" id="per_page" value="6" min="1" max="12">
+        <span class="sub">default 6 (a 3 x 2 grid)</span>
+      </div>
+      <div class="field">
+        <label>Rotate every (seconds)</label>
+        <input type="number" id="rotate_seconds" value="20" min="3">
+        <span class="sub">if more instruments than fit, pages scroll/rotate</span>
+      </div>
+      <div class="field">
+        <label>Refresh every (seconds)</label>
+        <input type="number" id="refresh_seconds" value="60" min="10">
+        <span class="sub">how often feeds are re-fetched</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Display options -->
+  <div class="card">
+    <h2>Display options</h2>
+    <p class="hint">Privacy and layout choices for what each booking shows.</p>
+
+    <div class="grid">
+      <div>
+        <div class="check"><input type="checkbox" id="show_user_id"><label for="show_user_id">Show user ID</label></div>
+        <div class="check"><input type="checkbox" id="show_email"><label for="show_email">Show email address</label></div>
+      </div>
+      <div>
+        <label>Name display</label>
+        <div class="radio-row">
+          <div class="radio"><input type="radio" name="name_display" id="nd_full" value="full" checked><label for="nd_full">Full name</label></div>
+          <div class="radio"><input type="radio" name="name_display" id="nd_init" value="initials"><label for="nd_init">Initials only</label></div>
+        </div>
+      </div>
+    </div>
+
+    <div style="margin-top:16px;">
+      <label>Booking window</label>
+      <div class="radio-row">
+        <div class="radio"><input type="radio" name="day_window" id="dw_full" value="full" checked><label for="dw_full">Full day (all bookings)</label></div>
+        <div class="radio"><input type="radio" name="day_window" id="dw_biz" value="business"><label for="dw_biz">Business hours only</label></div>
+      </div>
+      <div class="business-fields" id="business-fields">
+        <div class="field"><label>Start</label><input type="time" id="business_start" value="09:00"></div>
+        <div class="field"><label>End</label><input type="time" id="business_end" value="18:00"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Incident detection -->
+  <div class="card">
+    <h2>Incident detection</h2>
+    <p class="hint">An instrument shows RED when one of these is active. Comma-separated.</p>
+    <div class="grid">
+      <div class="field">
+        <label>Incident categories</label>
+        <input type="text" id="incident_categories" value="Incident, Intervention, Maintenance, Down">
+        <span class="sub">matches the iCal CATEGORIES field</span>
+      </div>
+      <div class="field">
+        <label>Incident title keywords</label>
+        <input type="text" id="incident_keywords" value="fault, offline, out of service">
+        <span class="sub">matches words in the booking title</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Instruments -->
+  <div class="card">
+    <h2>Instruments</h2>
+    <p class="hint">Add one row per instrument. Only name + calendar URL are required.
+      Tip: try <code>demo://booking</code>, <code>demo://free</code> or
+      <code>demo://incident</code> as a URL to preview the design with no real feed.</p>
+    <div id="instruments"></div>
+    <button class="btn-add" onclick="addInstrument()">+ Add instrument</button>
+  </div>
+
+  <!-- Import existing -->
+  <div class="card">
+    <details>
+      <summary>Load / edit an existing billboard_config.json</summary>
+      <p class="hint" style="margin-top:10px;">Paste an existing config and click Load to populate the form.</p>
+      <textarea id="import-area" placeholder="Paste billboard_config.json here..."></textarea>
+      <button class="btn-ghost" style="margin-top:10px;" onclick="importJSON()">Load into form</button>
+    </details>
+  </div>
+
+  <!-- Output -->
+  <div class="card">
+    <h2>Generated config</h2>
+    <p class="hint">This is your <code>billboard_config.json</code>. Download it, or copy it next to the app.</p>
+    <textarea id="output" readonly></textarea>
+  </div>
+
+</div>
+
+<!-- Sticky actions -->
+<div class="actions">
+  <button class="btn-primary" onclick="generate()">Generate</button>
+  <button class="btn-ghost" onclick="download()">Download billboard_config.json</button>
+  <button class="btn-ghost" onclick="copyOut()">Copy</button>
+  <span class="spacer"></span>
+  <span class="msg" id="msg"></span>
+</div>
+
+<script>
+// ---------------------------------------------------------------------------
+// Instrument rows
+// ---------------------------------------------------------------------------
+var instCount = 0;
+
+function instrumentRow(data) {
+  data = data || {};
+  var id = 'inst-' + (instCount++);
+  var div = document.createElement('div');
+  div.className = 'inst';
+  div.id = id;
+  div.innerHTML =
+    '<div class="inst-head"><span class="num">Instrument</span>' +
+    '<button class="btn-remove" onclick="removeInstrument(\'' + id + '\')">Remove</button></div>' +
+    '<div class="grid">' +
+      field('equipment_id', 'Equipment ID *', data.equipment_id || '') +
+      field('equipment_name', 'Display name *', data.equipment_name || '') +
+      field('display_order', 'Display order', data.display_order != null ? data.display_order : '', 'number') +
+      '<div class="field full">' + lbl('calendar_url', 'Booking calendar URL *') +
+        '<input type="text" data-k="calendar_url" value="' + esc(data.calendar_url || '') + '" placeholder="https://... or demo://booking"></div>' +
+      '<div class="field full">' + lbl('incident_url', 'Incident calendar URL (optional)') +
+        '<input type="text" data-k="incident_url" value="' + esc(data.incident_url || '') + '" placeholder="https://... separate incident feed"></div>' +
+      field('summary_strip', 'Strip from titles', data.summary_strip || '') +
+      '<div class="check" style="align-self:end;"><input type="checkbox" data-k="enabled" ' +
+        (data.enabled === false ? '' : 'checked') + '><label>Enabled</label></div>' +
+    '</div>';
+  document.getElementById('instruments').appendChild(div);
+}
+
+function field(key, label, val, type) {
+  type = type || 'text';
+  return '<div class="field">' + lbl(key, label) +
+    '<input type="' + type + '" data-k="' + key + '" value="' + esc(val) + '"></div>';
+}
+function lbl(key, label) { return '<label>' + label + '</label>'; }
+function esc(s) { return String(s == null ? '' : s).replace(/"/g, '&quot;').replace(/</g, '&lt;'); }
+
+function addInstrument(data) { instrumentRow(data); }
+function removeInstrument(id) {
+  var el = document.getElementById(id);
+  if (el) el.remove();
+}
+
+// ---------------------------------------------------------------------------
+// Business-hours fields show/hide
+// ---------------------------------------------------------------------------
+function syncBusiness() {
+  var biz = document.getElementById('dw_biz').checked;
+  document.getElementById('business-fields').classList.toggle('show', biz);
+}
+document.getElementById('dw_full').addEventListener('change', syncBusiness);
+document.getElementById('dw_biz').addEventListener('change', syncBusiness);
+
+// ---------------------------------------------------------------------------
+// Build the config object from the form
+// ---------------------------------------------------------------------------
+function csv(id) {
+  return document.getElementById(id).value.split(',').map(function (s) { return s.trim(); })
+    .filter(function (s) { return s.length; });
+}
+function num(id) { return parseInt(document.getElementById(id).value, 10); }
+function val(id) { return document.getElementById(id).value.trim(); }
+function radio(name) {
+  var els = document.getElementsByName(name);
+  for (var i = 0; i < els.length; i++) if (els[i].checked) return els[i].value;
+  return null;
+}
+
+function buildConfig() {
+  var instruments = [];
+  var rows = document.querySelectorAll('#instruments .inst');
+  for (var i = 0; i < rows.length; i++) {
+    var inputs = rows[i].querySelectorAll('[data-k]');
+    var o = {};
+    for (var j = 0; j < inputs.length; j++) {
+      var k = inputs[j].getAttribute('data-k');
+      o[k] = inputs[j].type === 'checkbox' ? inputs[j].checked : inputs[j].value.trim();
+    }
+    if (!o.equipment_name && !o.calendar_url) continue;  // skip empty rows
+    var inst = {
+      equipment_id: o.equipment_id || slug(o.equipment_name),
+      equipment_name: o.equipment_name,
+      calendar_url: o.calendar_url
+    };
+    if (o.incident_url) inst.incident_url = o.incident_url;
+    if (o.summary_strip) inst.summary_strip = o.summary_strip;
+    if (o.display_order !== '' && o.display_order != null) inst.display_order = parseInt(o.display_order, 10);
+    if (o.enabled === false) inst.enabled = false;
+    instruments.push(inst);
+  }
+
+  var cfg = {
+    title: val('title'),
+    subtitle: val('subtitle'),
+    timezone: val('timezone'),
+    per_page: num('per_page'),
+    rotate_seconds: num('rotate_seconds'),
+    refresh_seconds: num('refresh_seconds'),
+    mode: val('mode'),
+    incident_categories: csv('incident_categories'),
+    incident_keywords: csv('incident_keywords'),
+    display_options: {
+      show_user_id: document.getElementById('show_user_id').checked,
+      show_email: document.getElementById('show_email').checked,
+      name_display: radio('name_display'),
+      day_window: radio('day_window'),
+      business_start: val('business_start'),
+      business_end: val('business_end')
+    },
+    instruments: instruments
+  };
+  return cfg;
+}
+
+function slug(s) {
+  return String(s || 'instrument').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+}
+
+// ---------------------------------------------------------------------------
+// Actions
+// ---------------------------------------------------------------------------
+function generate() {
+  var cfg = buildConfig();
+  document.getElementById('output').value = JSON.stringify(cfg, null, 2);
+  flash('Generated. ' + cfg.instruments.length + ' instrument(s).');
+}
+
+function download() {
+  generate();
+  var blob = new Blob([document.getElementById('output').value], { type: 'application/json' });
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'billboard_config.json';
+  document.body.appendChild(a); a.click(); a.remove();
+  flash('Downloaded billboard_config.json');
+}
+
+function copyOut() {
+  generate();
+  var ta = document.getElementById('output');
+  ta.select();
+  navigator.clipboard.writeText(ta.value).then(function () { flash('Copied to clipboard'); },
+    function () { document.execCommand('copy'); flash('Copied'); });
+}
+
+function flash(m) {
+  var el = document.getElementById('msg');
+  el.textContent = m;
+  setTimeout(function () { el.textContent = ''; }, 3000);
+}
+
+// ---------------------------------------------------------------------------
+// Import existing config
+// ---------------------------------------------------------------------------
+function importJSON() {
+  var text = document.getElementById('import-area').value.trim();
+  if (!text) return;
+  var cfg;
+  try { cfg = JSON.parse(text); }
+  catch (e) { flash('Invalid JSON: ' + e.message); return; }
+
+  setVal('title', cfg.title); setVal('subtitle', cfg.subtitle);
+  setVal('timezone', cfg.timezone);
+  setVal('per_page', cfg.per_page); setVal('rotate_seconds', cfg.rotate_seconds);
+  setVal('refresh_seconds', cfg.refresh_seconds);
+  if (cfg.mode) document.getElementById('mode').value = cfg.mode;
+  if (cfg.incident_categories) setVal('incident_categories', cfg.incident_categories.join(', '));
+  if (cfg.incident_keywords) setVal('incident_keywords', cfg.incident_keywords.join(', '));
+
+  var o = cfg.display_options || {};
+  document.getElementById('show_user_id').checked = !!o.show_user_id;
+  document.getElementById('show_email').checked = !!o.show_email;
+  setRadio('name_display', o.name_display || 'full');
+  setRadio('day_window', o.day_window || 'full');
+  setVal('business_start', o.business_start || '09:00');
+  setVal('business_end', o.business_end || '18:00');
+  syncBusiness();
+
+  document.getElementById('instruments').innerHTML = '';
+  (cfg.instruments || []).forEach(function (inst) { instrumentRow(inst); });
+  flash('Loaded ' + (cfg.instruments || []).length + ' instrument(s).');
+}
+
+function setVal(id, v) { if (v !== undefined && v !== null) document.getElementById(id).value = v; }
+function setRadio(name, v) {
+  var els = document.getElementsByName(name);
+  for (var i = 0; i < els.length; i++) els[i].checked = (els[i].value === v);
+}
+
+// ---------------------------------------------------------------------------
+// Start with a few placeholder rows so the form is not empty
+// ---------------------------------------------------------------------------
+addInstrument({ equipment_id: 'sem-01', equipment_name: 'SEM 01', calendar_url: 'demo://booking', summary_strip: 'DEMO', display_order: 1 });
+addInstrument({ equipment_id: 'sem-02', equipment_name: 'SEM 02', calendar_url: 'demo://free', summary_strip: 'DEMO', display_order: 2 });
+addInstrument({ equipment_id: 'tem-01', equipment_name: 'TEM 01', calendar_url: 'demo://incident', summary_strip: 'DEMO', display_order: 3 });
+generate();
+</script>
+</body>
+</html>
