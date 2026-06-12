@@ -33,6 +33,7 @@ All source is kept ASCII-safe for Windows embeddable Python.
 """
 import os
 import sys
+import json
 import concurrent.futures
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -44,7 +45,7 @@ except ImportError:  # pragma: no cover
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
 
 from lab_flightboard import (
     BillboardConfigError,
@@ -67,6 +68,10 @@ app = Flask(__name__)
 
 HTTP_PORT = int(os.environ.get("LAB_FLIGHTBOARD_PORT", "5200"))
 
+# Set LAB_FLIGHTBOARD_READONLY=1 to forbid the /config form from writing the
+# config file (recommended if the board is on an untrusted network).
+ALLOW_WRITE = os.environ.get("LAB_FLIGHTBOARD_READONLY", "").lower() not in ("1", "true", "yes")
+
 # Where to look for the config: CLI arg > env var > ./billboard_config.json >
 # the bundled example (placeholder instruments + demo feeds).
 _EXAMPLE_CONFIG = Path(__file__).parent / "billboard_config.example.json"
@@ -84,13 +89,21 @@ def _resolve_config_path() -> Path:
     return _EXAMPLE_CONFIG
 
 
+def _save_target(load_path: Path) -> Path:
+    """Where the /config form writes to. Never overwrite the bundled example."""
+    if load_path == _EXAMPLE_CONFIG:
+        return Path.cwd() / "billboard_config.json"
+    return load_path
+
+
 def load_config():
+    """Return (config, save_path). save_path is where edits are written back."""
     path = _resolve_config_path()
     if path == _EXAMPLE_CONFIG:
         print("  No billboard_config.json found - using bundled PLACEHOLDER demo config.")
         print("  Copy examples/billboard_config.example.json to billboard_config.json and edit it.")
     cfg = load_billboard_config(path)
-    return cfg
+    return cfg, _save_target(path)
 
 
 # ==============================================================================
@@ -583,13 +596,43 @@ def config_builder():
     return path.read_text(encoding="utf-8")
 
 
+@app.route("/api/config", methods=["GET", "POST"])
+def api_config():
+    """GET returns the current config JSON; POST saves a new config and applies it live."""
+    save_path = app.config.get("CONFIG_PATH")
+
+    if request.method == "GET":
+        src = save_path if (save_path and save_path.exists()) else _EXAMPLE_CONFIG
+        return app.response_class(src.read_text(encoding="utf-8"), mimetype="application/json")
+
+    # POST: validate, write to disk, and hot-swap the live config (no restart).
+    if not ALLOW_WRITE:
+        return jsonify({"ok": False, "error": "Server is in read-only mode"}), 403
+    data = request.get_json(force=True, silent=True)
+    if not isinstance(data, dict):
+        return jsonify({"ok": False, "error": "Request body must be a JSON object"}), 400
+    try:
+        cfg = parse_billboard_config(data)
+    except BillboardConfigError as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 400
+
+    save_path.write_text(json.dumps(data, indent=2), encoding="utf-8")
+    app.config["BILLBOARD"] = cfg  # board picks this up on its next refresh
+    return jsonify({
+        "ok": True,
+        "saved_to": str(save_path),
+        "instruments": len(cfg.instruments),
+    })
+
+
 def main():
     try:
-        cfg = load_config()
+        cfg, save_path = load_config()
     except BillboardConfigError as exc:
         print("  Config error: " + str(exc))
         sys.exit(1)
     app.config["BILLBOARD"] = cfg
+    app.config["CONFIG_PATH"] = save_path
 
     print("")
     print("  Lab Flightboard - Instrument Status Billboard")
@@ -599,8 +642,10 @@ def main():
     print("  Instruments : " + str(len(enabled_instruments(cfg))))
     print("  Per screen  : " + str(cfg.per_page) + "  (rotate every " + str(cfg.rotate_seconds) + "s if more)")
     print("  Refresh     : every " + str(cfg.refresh_seconds) + "s")
+    print("  Config file : " + str(save_path) + ("" if ALLOW_WRITE else "  (read-only)"))
     print("")
-    print("  Open http://localhost:" + str(HTTP_PORT) + " and press F11 for full screen")
+    print("  Board   : http://localhost:" + str(HTTP_PORT) + "   (press F11 for full screen)")
+    print("  Editor  : http://localhost:" + str(HTTP_PORT) + "/config   (edit + apply live)")
     print("")
     app.run(host="0.0.0.0", port=HTTP_PORT, debug=False)
 

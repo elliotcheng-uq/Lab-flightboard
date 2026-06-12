@@ -87,6 +87,33 @@ below, and a freeform **Add instrument** list. Click **Download
 billboard_config.json** (or **Copy**) and drop the file next to the app. You can
 also paste an existing config back in to edit it.
 
+## Saving changes and restarting
+
+The server reads the config on every status poll, so there are two ways to apply
+an edit:
+
+**Apply live from the form (no restart).** Open `http://localhost:5200/config`,
+make your changes, and click **Save to server & apply**. The server validates the
+config, writes `billboard_config.json`, and hot-swaps it in place — the board
+updates on its next refresh (within `refresh_seconds`). Use **Load current server
+config** to pull the running config back into the form first. (This only works
+when the page is opened from the running server, not as a `file://`.)
+
+> On an untrusted network, start the server with `LAB_FLIGHTBOARD_READONLY=1` to
+> disable saving from the form. The board still runs; `/api/config` returns 403
+> on writes.
+
+**Manual restart.** If you edit `billboard_config.json` by hand:
+
+1. Stop the server: **Ctrl+C** in its terminal (or close the
+   "Lab Flightboard Server" window).
+2. Save your `billboard_config.json` in the working directory.
+3. Start it again: `python examples/billboard_app.py`.
+
+On a Raspberry Pi running under systemd, apply a hand-edit with
+`sudo systemctl restart flightboard.service` (see the deployment guide). The
+live-apply form works there too.
+
 ## Add your own instruments
 
 Copy the example and edit it (or use the form above):

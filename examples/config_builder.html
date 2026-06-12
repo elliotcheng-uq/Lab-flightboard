@@ -221,7 +221,10 @@
       <summary>Load / edit an existing billboard_config.json</summary>
       <p class="hint" style="margin-top:10px;">Paste an existing config and click Load to populate the form.</p>
       <textarea id="import-area" placeholder="Paste billboard_config.json here..."></textarea>
-      <button class="btn-ghost" style="margin-top:10px;" onclick="importJSON()">Load into form</button>
+      <div style="margin-top:10px; display:flex; gap:10px;">
+        <button class="btn-ghost" onclick="importJSON()">Load pasted JSON</button>
+        <button class="btn-ghost" onclick="loadFromServer()">Load current server config</button>
+      </div>
     </details>
   </div>
 
@@ -236,9 +239,10 @@
 
 <!-- Sticky actions -->
 <div class="actions">
-  <button class="btn-primary" onclick="generate()">Generate</button>
-  <button class="btn-ghost" onclick="download()">Download billboard_config.json</button>
-  <button class="btn-ghost" onclick="copyOut()">Copy</button>
+  <button class="btn-primary" onclick="saveToServer()">Save to server &amp; apply</button>
+  <button class="btn-ghost" onclick="download()">Download</button>
+  <button class="btn-ghost" onclick="copyOut()">Copy JSON</button>
+  <button class="btn-ghost" onclick="generate()">Preview</button>
   <span class="spacer"></span>
   <span class="msg" id="msg"></span>
 </div>
@@ -404,7 +408,10 @@ function importJSON() {
   var cfg;
   try { cfg = JSON.parse(text); }
   catch (e) { flash('Invalid JSON: ' + e.message); return; }
+  populate(cfg);
+}
 
+function populate(cfg) {
   setVal('title', cfg.title); setVal('subtitle', cfg.subtitle);
   setVal('timezone', cfg.timezone);
   setVal('per_page', cfg.per_page); setVal('rotate_seconds', cfg.rotate_seconds);
@@ -431,6 +438,42 @@ function setVal(id, v) { if (v !== undefined && v !== null) document.getElementB
 function setRadio(name, v) {
   var els = document.getElementsByName(name);
   for (var i = 0; i < els.length; i++) els[i].checked = (els[i].value === v);
+}
+
+// ---------------------------------------------------------------------------
+// Talk to the running server (only works when opened at http://host:5200/config)
+// ---------------------------------------------------------------------------
+function onServer() { return location.protocol === 'http:' || location.protocol === 'https:'; }
+
+function saveToServer() {
+  if (!onServer()) {
+    flash('Open this page at http://localhost:5200/config (not as a file) to save to the server.');
+    return;
+  }
+  var cfg = buildConfig();
+  generate();
+  fetch('/api/config', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(cfg)
+  }).then(function (r) { return r.json(); }).then(function (d) {
+    if (d.ok) {
+      flash('Saved to ' + d.saved_to + ' and applied (' + d.instruments + ' instruments). The board updates on its next refresh.');
+    } else {
+      flash('Server rejected config: ' + d.error);
+    }
+  }).catch(function (e) { flash('Could not reach server: ' + e.message); });
+}
+
+function loadFromServer() {
+  if (!onServer()) {
+    flash('Open this page at http://localhost:5200/config to load from the server.');
+    return;
+  }
+  fetch('/api/config').then(function (r) { return r.json(); }).then(function (cfg) {
+    populate(cfg);
+    flash('Loaded the running server config.');
+  }).catch(function (e) { flash('Could not reach server: ' + e.message); });
 }
 
 // ---------------------------------------------------------------------------
