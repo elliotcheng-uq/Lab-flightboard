@@ -278,6 +278,24 @@ def test_overlaps_business_straddling_start():
     assert overlaps_business(b, UTC, "09:00", "18:00") is True
 
 
+def test_parse_instrument_room():
+    cfg = parse_billboard_config({
+        "instruments": [
+            {"equipment_id": "a", "equipment_name": "A", "calendar_url": "demo://free", "room": "Room 1.01"}
+        ]
+    })
+    assert cfg.instruments[0].room == "Room 1.01"
+
+
+def test_parse_instrument_room_optional():
+    cfg = parse_billboard_config({
+        "instruments": [
+            {"equipment_id": "a", "equipment_name": "A", "calendar_url": "demo://free"}
+        ]
+    })
+    assert cfg.instruments[0].room is None
+
+
 def test_enabled_instruments_sorted_and_filtered():
     cfg = parse_billboard_config({
         "instruments": [

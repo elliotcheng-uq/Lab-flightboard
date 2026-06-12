@@ -190,6 +190,7 @@ path: `python examples/billboard_app.py path/to/config.json`).
 |---|---|---|
 | `equipment_id` | yes | Stable internal id |
 | `equipment_name` | yes | Name shown on the tile |
+| `room` | no | Room number shown under the instrument name (e.g. `Room 2.14`) |
 | `calendar_url` | yes | Booking iCal feed (`https://`, `webcal://`, or `demo://...`) |
 | `incident_url` | no | Optional **separate** incident feed; all its events are treated as incidents |
 | `summary_strip` | no | Text to remove from every booking title (e.g. the repeated instrument name) so tiles show just the person |

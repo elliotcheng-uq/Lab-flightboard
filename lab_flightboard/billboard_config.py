@@ -36,6 +36,7 @@ class BillboardInstrument:
     equipment_id: str
     equipment_name: str
     calendar_url: str
+    room: Optional[str] = None
     incident_url: Optional[str] = None
     summary_strip: Optional[str] = None
     display_order: Optional[int] = None
@@ -140,6 +141,7 @@ def _parse_instrument(item: object, idx: int) -> BillboardInstrument:
         equipment_id=str(item["equipment_id"]),
         equipment_name=str(item["equipment_name"]),
         calendar_url=str(item["calendar_url"]),
+        room=item.get("room"),
         incident_url=item.get("incident_url"),
         summary_strip=item.get("summary_strip"),
         display_order=item.get("display_order"),

@@ -218,6 +218,7 @@ def _serialize(view, config, inst, tz, now):
     opts = config.display_options
     d = {
         "name": view.equipment_name,
+        "room": inst.room,
         "status": view.status,
         "error": view.error,
         "incidents": [
@@ -333,6 +334,8 @@ body {
               white-space: nowrap; overflow: hidden; flex: 1 1 auto; }
 .panel-status { font-size: 1.5vw; font-weight: 800; letter-spacing: 0.05em;
                 white-space: nowrap; opacity: 0.95; flex: 0 0 auto; }
+.panel-room { font-size: 1.0vw; font-weight: 700; color: rgba(255,255,255,0.85);
+              margin-top: 0.15vw; letter-spacing: 0.02em; }
 
 /* Booking list. .bookings clips; .bookings-inner is what scrolls vertically. */
 .bookings { margin-top: 0.7vw; overflow: hidden; flex: 1 1 auto; min-height: 0; }
@@ -433,6 +436,7 @@ function panelHTML(inst) {
   h += '<div class="panel-name"><span class="scroller">' + esc(inst.name) + '</span></div>';
   h += '<div class="panel-status">' + (STATUS_WORD[st] || '') + '</div>';
   h += '</div>';
+  if (inst.room) h += '<div class="panel-room">' + esc(inst.room) + '</div>';
 
   if (st === 'down') {
     var inc = (inst.incidents && inst.incidents.length) ? inst.incidents[0] : null;
@@ -550,20 +554,49 @@ function render(data) {
   buildTicker(data);
 }
 
-setInterval(function () {
-  if (pages.length > 1) {
-    curPage = (curPage + 1) % pages.length;
-    drawPage();
-  }
-}, ROTATE_MS);
-
-function load() {
-  fetch('/api/status').then(function (r) { return r.json(); }).then(function (d) {
-    if (d.ok) render(d.instruments);
-  }).catch(function () {});
+// Self-adjusting rotation timer so a changed rotate_seconds takes effect live.
+var rotateTimer = null;
+function scheduleRotate() {
+  clearTimeout(rotateTimer);
+  rotateTimer = setTimeout(function () {
+    if (pages.length > 1) {
+      curPage = (curPage + 1) % pages.length;
+      drawPage();
+    }
+    scheduleRotate();
+  }, ROTATE_MS);
 }
+
+// Apply config that can change at runtime (title, mode, pagination, timers)
+// without needing a full page reload.
+function applyMeta(m) {
+  if (!m) return;
+  if (m.title != null) document.querySelector('.brand .b1').textContent = m.title;
+  if (m.subtitle != null) document.querySelector('.brand .b2').textContent = m.subtitle;
+  if (m.mode) MODE = m.mode;
+  if (m.per_page) PER_PAGE = m.per_page;
+  if (m.refresh_seconds) REFRESH_MS = m.refresh_seconds * 1000;
+  var newRotate = (m.rotate_seconds || 20) * 1000;
+  if (newRotate !== ROTATE_MS) { ROTATE_MS = newRotate; scheduleRotate(); }
+}
+
+var refreshTimer = null;
+function scheduleLoad() {
+  clearTimeout(refreshTimer);
+  refreshTimer = setTimeout(load, REFRESH_MS);
+}
+function load() {
+  // Cache-bust so the kiosk browser never serves a stale board.
+  fetch('/api/status?t=' + Date.now(), { cache: 'no-store' })
+    .then(function (r) { return r.json(); })
+    .then(function (d) {
+      if (d.ok) { applyMeta(d.meta); render(d.instruments); }
+      scheduleLoad();
+    })
+    .catch(function () { scheduleLoad(); });
+}
+scheduleRotate();
 load();
-setInterval(load, REFRESH_MS);
 </script>
 </body>
 </html>
@@ -583,10 +616,32 @@ def index():
     return page
 
 
+@app.after_request
+def _no_cache(resp):
+    """Stop the board's browser caching API responses, so edits show up at once."""
+    if request.path.startswith("/api/"):
+        resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+        resp.headers["Pragma"] = "no-cache"
+    return resp
+
+
 @app.route("/api/status")
 def api_status():
     cfg = app.config["BILLBOARD"]
-    return jsonify({"ok": True, "instruments": fetch_all(cfg)})
+    return jsonify({
+        "ok": True,
+        # meta lets the board apply title/mode/pagination changes live, without
+        # needing a full page reload.
+        "meta": {
+            "title": cfg.title,
+            "subtitle": cfg.subtitle,
+            "mode": cfg.mode,
+            "per_page": cfg.per_page,
+            "rotate_seconds": cfg.rotate_seconds,
+            "refresh_seconds": cfg.refresh_seconds,
+        },
+        "instruments": fetch_all(cfg),
+    })
 
 
 @app.route("/config")
