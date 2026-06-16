@@ -241,14 +241,19 @@ webcal://..."></textarea>
 
   <!-- Import existing -->
   <div class="card">
-    <details>
-      <summary>Load / edit an existing billboard_config.json</summary>
-      <p class="hint" style="margin-top:10px;">Paste an existing config and click Load to populate the form.</p>
-      <textarea id="import-area" placeholder="Paste billboard_config.json here..."></textarea>
-      <div style="margin-top:10px; display:flex; gap:10px;">
-        <button class="btn-ghost" onclick="importJSON()">Load pasted JSON</button>
-        <button class="btn-ghost" onclick="loadFromServer()">Load current server config</button>
-      </div>
+    <h2>Load an existing config</h2>
+    <p class="hint">Open a saved <code>billboard_config.json</code> from your
+      computer to edit it, load the one running on the server, or paste JSON.</p>
+    <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+      <input type="file" id="config-file" accept=".json,application/json" style="display:none" onchange="loadConfigFile(event)">
+      <button class="btn-primary" onclick="document.getElementById('config-file').click()">Load config file…</button>
+      <button class="btn-ghost" onclick="loadFromServer()">Load current server config</button>
+      <span class="msg" id="load-msg"></span>
+    </div>
+    <details style="margin-top:14px;">
+      <summary>…or paste JSON</summary>
+      <textarea id="import-area" style="margin-top:10px;" placeholder="Paste billboard_config.json here..."></textarea>
+      <button class="btn-ghost" style="margin-top:10px;" onclick="importJSON()">Load pasted JSON</button>
     </details>
   </div>
 
@@ -441,6 +446,25 @@ function importJSON() {
   catch (e) { flash('Invalid JSON: ' + e.message); return; }
   populate(cfg);
 }
+
+// Load a billboard_config.json file chosen from disk (works offline, file://).
+function loadConfigFile(event) {
+  var file = event.target.files && event.target.files[0];
+  if (!file) return;
+  var reader = new FileReader();
+  reader.onload = function () {
+    var cfg;
+    try { cfg = JSON.parse(reader.result); }
+    catch (e) { setLoadMsg('Invalid JSON in ' + file.name + ': ' + e.message); return; }
+    populate(cfg);
+    generate();
+    setLoadMsg('Loaded ' + file.name + '.');
+  };
+  reader.onerror = function () { setLoadMsg('Could not read ' + file.name + '.'); };
+  reader.readAsText(file);
+  event.target.value = '';  // allow re-loading the same file
+}
+function setLoadMsg(m) { document.getElementById('load-msg').textContent = m; }
 
 function populate(cfg) {
   setVal('title', cfg.title); setVal('subtitle', cfg.subtitle);
