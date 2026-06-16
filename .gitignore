@@ -1,0 +1,20 @@
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+.env
+.venv
+venv/
+.pytest_cache/
+.coverage
+htmlcov/
+*.ics.local
+
+# Local billboard config holds private iCal URLs - never commit it.
+# Commit examples/billboard_config.example.json instead.
+billboard_config.json

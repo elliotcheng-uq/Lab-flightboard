@@ -1,0 +1,23 @@
+[
+  {
+    "equipment_id": "sem-01",
+    "equipment_name": "SEM 01",
+    "calendar_url": "https://example.com/sem-01.ics",
+    "location": "Electron Microscopy Lab",
+    "display_order": 1
+  },
+  {
+    "equipment_id": "tem-01",
+    "equipment_name": "TEM 01",
+    "calendar_url": "https://example.com/tem-01.ics",
+    "location": "TEM Suite",
+    "display_order": 2
+  },
+  {
+    "equipment_id": "fib-sem",
+    "equipment_name": "FIB-SEM",
+    "calendar_url": "https://example.com/fib-sem.ics",
+    "display_order": 3,
+    "enabled": false
+  }
+]

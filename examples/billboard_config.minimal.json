@@ -1,0 +1,9 @@
+{
+  "title": "My Lab",
+  "timezone": "Australia/Brisbane",
+  "instruments": [
+    { "equipment_name": "SEM 01", "room": "Room 101", "calendar_url": "https://example.com/sem-01.ics" },
+    { "equipment_name": "TEM 01", "room": "Room 102", "calendar_url": "https://example.com/tem-01.ics" },
+    { "equipment_name": "Facility Incidents", "calendar_url": "https://example.com/incidents.ics", "incidents_only": true }
+  ]
+}

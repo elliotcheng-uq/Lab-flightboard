@@ -1,0 +1,78 @@
+{
+  "title": "Lab Flightboard",
+  "subtitle": "Instrument Status",
+  "timezone": "Australia/Brisbane",
+  "per_page": 6,
+  "rotate_seconds": 20,
+  "refresh_seconds": 60,
+  "incident_lookahead_days": 30,
+  "mode": "full",
+  "incident_categories": ["Incident", "Intervention", "Maintenance", "Down"],
+  "incident_keywords": ["fault", "offline", "out of service"],
+  "incident_link_patterns": ["/inc/"],
+  "display_options": {
+    "show_user_id": false,
+    "show_email": false,
+    "name_display": "full",
+    "day_window": "full",
+    "business_start": "09:00",
+    "business_end": "18:00",
+    "strip_parentheses": true
+  },
+  "instruments": [
+    {
+      "equipment_id": "sem-01",
+      "equipment_name": "SEM 01",
+      "room": "Room 1.01",
+      "calendar_url": "demo://booking",
+      "summary_strip": "DEMO",
+      "display_order": 1
+    },
+    {
+      "equipment_id": "sem-02",
+      "equipment_name": "SEM 02",
+      "room": "Room 1.02",
+      "calendar_url": "demo://free",
+      "summary_strip": "DEMO",
+      "display_order": 2
+    },
+    {
+      "equipment_id": "tem-01",
+      "equipment_name": "TEM 01",
+      "room": "Room 2.10",
+      "calendar_url": "demo://incident",
+      "summary_strip": "DEMO",
+      "display_order": 3
+    },
+    {
+      "equipment_id": "fib-01",
+      "equipment_name": "FIB-SEM",
+      "room": "Room 2.11",
+      "calendar_url": "demo://booking",
+      "summary_strip": "DEMO",
+      "display_order": 4
+    },
+    {
+      "equipment_id": "xrd-01",
+      "equipment_name": "XRD 01",
+      "room": "Room 3.05",
+      "calendar_url": "demo://free",
+      "summary_strip": "DEMO",
+      "display_order": 5
+    },
+    {
+      "equipment_id": "afm-01",
+      "equipment_name": "AFM 01",
+      "room": "Room 3.06",
+      "calendar_url": "demo://free",
+      "summary_strip": "DEMO",
+      "display_order": 6
+    },
+    {
+      "equipment_id": "facility-incidents",
+      "equipment_name": "Facility Incidents",
+      "calendar_url": "demo://incident",
+      "incidents_only": true
+    }
+  ]
+}
