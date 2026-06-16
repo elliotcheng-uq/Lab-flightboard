@@ -3,8 +3,48 @@
 How to run Lab Flightboard on a Raspberry Pi as a permanent, boot-on wall
 display in full-screen kiosk mode.
 
-This suits a Pi 4 (or newer) driving a TV over HDMI. A Pi 4 handles a 4K display
-at this board's simple layout comfortably.
+---
+
+## Requirements
+
+**Hardware**
+
+- **Raspberry Pi 4 (or newer)**, 2 GB RAM is plenty. A Pi 4 drives a 4K TV at
+  this board's simple layout comfortably; a Pi 3 is fine for 1080p.
+- **microSD card** (16 GB+) and a good power supply.
+- **HDMI cable** to the TV/monitor (Pi 4 uses micro-HDMI).
+- **Network** — Wi-Fi or Ethernet, with outbound internet to reach your feeds.
+
+**Software** (all installed in the steps below)
+
+- **Raspberry Pi OS (64-bit, with desktop)** — Bookworm or newer.
+- **Python 3.10+** (ships with Pi OS) and `pip`.
+- **Flask** and the `lab_flightboard` package + its dependencies.
+- **Chromium** (ships with Pi OS) for the kiosk display.
+
+**Network ports** — none need opening. The Pi only makes *outbound* HTTPS
+requests to your iCal feeds. The board is served locally on port 5200; open that
+only if you also want to view it from another machine.
+
+---
+
+## Quick version
+
+For someone comfortable on the command line — full details follow below.
+
+```bash
+sudo apt update && sudo apt full-upgrade -y
+sudo apt install -y git python3-pip chromium-browser unclutter
+git clone https://github.com/elliotcheng-uq/Lab-flightboard.git
+cd Lab-flightboard
+pip install -e . flask --break-system-packages
+cp examples/billboard_config.minimal.json billboard_config.json
+nano billboard_config.json            # add your instruments + iCal URLs
+python3 examples/billboard_app.py     # test at http://localhost:5200
+```
+
+Then set up the systemd service (step 3) and the kiosk autostart (step 4) so it
+runs on boot.
 
 ---
 
@@ -32,8 +72,8 @@ sudo raspi-config    # Localisation Options -> Timezone
 
 ```bash
 sudo apt install -y git python3-pip
-git clone https://github.com/<your-org>/lab-flightboard.git
-cd lab-flightboard
+git clone https://github.com/elliotcheng-uq/Lab-flightboard.git
+cd Lab-flightboard
 pip install -e . --break-system-packages
 pip install flask --break-system-packages
 ```
@@ -46,8 +86,8 @@ Create your config (this file is git-ignored, so your private feed URLs stay
 local):
 
 ```bash
-cp examples/billboard_config.example.json billboard_config.json
-nano billboard_config.json    # replace demo:// feeds with your https iCal URLs
+cp examples/billboard_config.minimal.json billboard_config.json
+nano billboard_config.json    # replace the example URLs with your iCal feeds
 ```
 
 Test it:
@@ -76,8 +116,8 @@ Wants=network-online.target
 
 [Service]
 User=pi
-WorkingDirectory=/home/pi/lab-flightboard
-ExecStart=/usr/bin/python3 examples/billboard_app.py /home/pi/lab-flightboard/billboard_config.json
+WorkingDirectory=/home/pi/Lab-flightboard
+ExecStart=/usr/bin/python3 examples/billboard_app.py /home/pi/Lab-flightboard/billboard_config.json
 Restart=always
 RestartSec=5
 

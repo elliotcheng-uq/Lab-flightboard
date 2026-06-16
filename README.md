@@ -14,32 +14,57 @@ It has two layers:
    colour-coded board with a live incident ticker. Freeform: anyone points it at
    their own instruments and iCal URLs.
 
-## Install
+## Requirements
+
+- **Python 3.10 or newer** (3.11+ recommended) — includes `pip`
+- **Flask** (`pip install flask`) — only needed for the billboard display and the
+  config form; the parser itself does not need it
+- **Internet access** from the machine that runs it, so it can reach your iCal
+  feeds
+- A **modern browser** to show the board (Chromium/Chrome/Edge/Firefox)
+
+No database, no accounts, no build step, no cloud service. It is a single Python
+process serving one web page, plus a small library. To deploy it on a wall TV see
+the [Raspberry Pi guide](docs/deployment_raspberry_pi.md).
+
+Python libraries (installed automatically by the step below): `icalendar`,
+`recurring-ical-events`, `python-dateutil`, `requests`.
+
+## Setup (run on your computer)
 
 ```bash
-pip install -e ".[dev]"
-```
+# 1. Get the code
+git clone https://github.com/elliotcheng-uq/Lab-flightboard.git
+cd Lab-flightboard
 
-## See the billboard now
-
-```bash
+# 2. Install the package and Flask
+pip install -e .
 pip install flask
+
+# 3. Start the billboard
 python examples/billboard_app.py
-# open http://localhost:5200  (press F11 for full screen)
 ```
+
+Then open **`http://localhost:5200`** and press **F11** for full screen.
+
+> **Windows:** if `python` opens the Microsoft Store, use `py` instead
+> (`py examples\billboard_app.py`), or double-click **`serve.bat`** /
+> **`start-billboard.bat`** which also opens the display full-screen.
 
 With no config present it runs on **placeholder instruments with demo bookings**,
 so you see the full design immediately — green (free), orange (in use) and red
-(down) tiles plus a scrolling incident ticker. Then add your own instruments:
+(down) tiles plus a scrolling incident ticker.
+
+## Configure your instruments
 
 ```bash
 cp examples/billboard_config.minimal.json billboard_config.json   # git-ignored
 # edit billboard_config.json: replace the URLs with your iCal feeds
 ```
 
-The config is intentionally minimal — each instrument needs only a name and a
-calendar URL; everything else has a sensible default. See
-`examples/billboard_config.example.json` for every option.
+Each instrument needs only a name and a calendar URL; everything else has a
+sensible default. Restart the app (or use the browser form below) to apply.
+See `examples/billboard_config.example.json` for every option.
 
 ### Edit it in the browser (no JSON by hand)
 
@@ -94,8 +119,11 @@ python examples/dev_server.py        # http://localhost:5050
 ## Run tests
 
 ```bash
+pip install -e ".[dev]"   # installs pytest
 pytest
 ```
+
+The tests use fake/demo feeds only and need no internet access.
 
 ## Documentation
 
